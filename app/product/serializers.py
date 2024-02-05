@@ -13,7 +13,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = ['id', 'name', 'description', 'categories', 'price']
+        fields = '__all__'
         read_only_fields = ['id']
 
     def _get_or_create_category(self, categories, product):

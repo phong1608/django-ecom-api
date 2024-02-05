@@ -30,4 +30,6 @@ urlpatterns = [
     ),
     path('api/user/',include('user.urls')),
     path('api/product/',include('product.urls')),
+    path('api/',include('address.urls')),
+    path('api/',include('order.urls'),name='order')
 ]

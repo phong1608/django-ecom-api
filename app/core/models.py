@@ -51,13 +51,21 @@ class Category(models.Model):
 
 class Product(models.Model):
     name = models.CharField(max_length=255)
-    description = models.TextField(max_length=255, blank=False)
-    categories = models.ManyToManyField('Category') 
+    description = models.TextField(max_length=255, blank=True)
+    categories = models.ManyToManyField('Category')
+    image = models.TextField(max_length=255, blank=True) 
     price = models.IntegerField()
-
+    rating = models.DecimalField(max_digits=7, decimal_places=2,blank=True,default=0)
+    numReviews = models.IntegerField(null=True, blank=True,default=0)
+    stock=models.IntegerField(null=True,default=0)
     def __str__(self):
         return self.name
-    
+
+class Review(models.Model):
+    product = models.ForeignKey(Product,on_delete=models.CASCADE,null=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+
 class Cart(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     total = models.IntegerField(default=0)
@@ -78,33 +86,62 @@ class CartItem(models.Model):
     quantity = models.IntegerField()
     
     
-class OrderHeader(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE)
-    order_date = models.DateField(auto_now=False, auto_now_add=False)
-    ship_date = models.DateField(auto_now=False, auto_now_add=False)
-    cart = models.ManyToManyField('Cart')
-    PENDING = 'pending'
-    PROCESSING = 'processing'
-    SHIPPED = 'shipped'
-    DELIVERED = 'delivered'
-    CANCELLED = 'cancelled'
 
-    STATUS_CHOICES = [
-        (PENDING, 'Pending'),
-        (PROCESSING, 'Processing'),
-        (SHIPPED, 'Shipped'),
-        (DELIVERED, 'Delivered'),
-        (CANCELLED, 'Cancelled'),
-    ]
+class Address(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="address", on_delete=models.CASCADE)
+    city = models.CharField(max_length=100, blank=False, null=False)
+    district = models.CharField(max_length=100, blank=False, null=False)
+    street_address = models.CharField(max_length=250, blank=False, null=False)
+    postal_code = models.CharField(max_length=20, blank=True, null=True)
+    phone_number =  models.TextField(null=True, blank=True)
 
+    
+    
+class Order(models.Model):
+    PENDING_STATE = "p"
+    COMPLETED_STATE = "c"
+
+    ORDER_CHOICES = ((PENDING_STATE, "pending"), (COMPLETED_STATE, "completed"))
+    create_date = models.DateTimeField(auto_now_add=True,null=True)
+    delivered_date = models.DateTimeField(auto_now_add=False,null=True, blank=True)
+    shippingPrice = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True,default=0)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,related_name='order')
+    
     status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default=PENDING,
+        max_length=1, choices=ORDER_CHOICES, default=PENDING_STATE
     )
+    is_paid = models.BooleanField(default=False)
+    cart = models.ForeignKey(Cart,related_name='order_cart',on_delete=models.CASCADE,null=True)
+    address = models.ForeignKey(
+        Address, related_name="order_address", on_delete=models.CASCADE
+    )
+    @staticmethod
+    def create_order(buyer, address,cart, is_paid=False):
+        order = Order()
+        order.user = buyer
+        order.address = address
+        order.is_paid = is_paid
+        order.cart = cart
+        order.save()
+        return order   
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(
+        Order, related_name="order_items", on_delete=models.CASCADE
+    )
+    product = models.ForeignKey(
+        Product, related_name="product_order", on_delete=models.CASCADE
+    )
+    quantity = models.IntegerField(blank=True,default=1)
     
-    
-class OrderDetails(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.CASCADE)
-    product =models.ManyToManyField('Product')
-    order_header = models.ManyToManyField('OrderHeader')
+    @staticmethod
+    def create_order_item(order, product, quantity):
+        order_item = OrderItem()
+        order_item.order = order
+        order_item.product = product
+        order_item.quantity = quantity
+        
+        order_item.save()
+        return order_item
